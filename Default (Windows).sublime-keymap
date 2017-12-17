@@ -1,0 +1,6 @@
+[
+    { "keys": ["f10"], "command": "max_pane" },
+
+    { "keys": ["ctrl+k","ctrl+right"], "command": "shift_pane" },
+    { "keys": ["ctrl+k","ctrl+left"], "command": "unshift_pane" },
+]
