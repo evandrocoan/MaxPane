@@ -194,25 +194,6 @@ class UnshiftPaneCommand(ShiftPaneCommand):
 
 
 class MaxPaneEvents(sublime_plugin.EventListener):
-    def on_window_command(self, window, command_name, args):
-        unmaximize_before = ["travel_to_pane", "carry_file_to_pane",
-                             "clone_file_to_pane", "create_pane",
-                             "destroy_pane", "create_pane_with_file",
-                             "set_layout", "project_manager", "new_pane"]
-
-        if sublime.load_settings(SHARE_OBJECT).get('block_max_pane'):
-            return None
-
-        if command_name in unmaximize_before:
-            window.run_command("unmaximize_pane")
-
-        if command_name == "exit":
-            # Un maximize all windows before exiting
-            windows = sublime.windows()
-            for w in windows:
-                w.run_command("unmaximize_pane")
-
-        return None
 
     def on_activated(self, view):
 
