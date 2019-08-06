@@ -6,6 +6,13 @@ SHARE_OBJECT = 'max_pane_share.sublime-settings'
 
 # ------
 
+def fixed_set_layout(window, layout):
+    # https://github.com/SublimeTextIssues/Core/issues/2919
+    active_group = window.active_group()
+    window.set_layout( layout )
+    window.focus_group( active_group )
+
+
 class ShareManager:
     """Exposes a list of window ids which currently contain maximized panes.
        Shared via an in-memory .sublime-settings file."""
@@ -68,8 +75,6 @@ class PaneManager:
         wid = window.id()
         if wid in PaneManager.maxgroup:
             return PaneManager.maxgroup[wid]
-        else:
-            return None
 
     @staticmethod
     def popLayout(window):
@@ -119,7 +124,7 @@ class MaximizePaneCommand(sublime_plugin.WindowCommand):
         l["cols"] = new_cols
         for view in w.views():
             view.set_status('0_maxpane', 'MAX')
-        sublime.set_timeout( lambda: w.set_layout(l), 100 )
+        fixed_set_layout( w, l )
 
 # ------
 
@@ -128,8 +133,8 @@ class UnmaximizePaneCommand(sublime_plugin.WindowCommand):
     def run(self):
         w = self.window
         if PaneManager.hasLayout(w):
-            layout = PaneManager.popLayout(w)
-            sublime.set_timeout( lambda: w.set_layout( layout ), 100 )
+            l = PaneManager.popLayout(w)
+            fixed_set_layout( w, l )
         elif PaneManager.looksMaximized(w):
             # We don't have a previous layout for this window
             # but it looks like it was maximized, so lets
@@ -151,7 +156,7 @@ class DistributeLayoutCommand(sublime_plugin.WindowCommand):
         l = w.get_layout()
         l["rows"] = self.distribute(l["rows"])
         l["cols"] = self.distribute(l["cols"])
-        sublime.set_timeout( lambda: w.set_layout(l), 100 )
+        fixed_set_layout( w, l )
 
     def distribute(self, values):
         l = len(values)
@@ -196,14 +201,39 @@ class UnshiftPaneCommand(ShiftPaneCommand):
 class MaxPaneEvents(sublime_plugin.EventListener):
 
     def on_activated(self, view):
+        global g_is_running
+        # print('g_is_running', g_is_running)
 
-        if sublime.load_settings(SHARE_OBJECT).get('block_max_pane'):
-            return None
+        if g_is_running: return
+        if sublime.load_settings(SHARE_OBJECT).get('block_max_pane'): return None
 
-        w = view.window() or sublime.active_window()
         # Is the window currently maximized?
+        g_is_running = True
+        w = view.window() or sublime.active_window()
+
         if w and PaneManager.isWindowMaximized(w):
+            active_group = w.active_group()
+
             # Is the active group the group that is maximized?
-            if w.active_group() != PaneManager.maxedGroup(w):
-                w.run_command("unmaximize_pane")
-                w.run_command("maximize_pane")
+            if active_group != PaneManager.maxedGroup(w):
+
+                def unmaximize():
+                    w.run_command("unmaximize_pane")
+                    sublime.set_timeout( maximize, 100 )
+
+                def maximize():
+                    w.run_command("maximize_pane")
+                    sublime.set_timeout( disable, 100 )
+
+                def disable():
+                    global g_is_running
+                    g_is_running = False
+
+                # print('active_group', active_group)
+                sublime.set_timeout( unmaximize, 100 )
+
+            else:
+                g_is_running = False
+
+        else:
+            g_is_running = False
