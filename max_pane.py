@@ -4,7 +4,6 @@ import sublime_plugin
 
 SHARE_OBJECT = 'max_pane_share.sublime-settings'
 
-# ------
 
 def fixed_set_layout(window, layout):
     # https://github.com/SublimeTextIssues/Core/issues/2919
@@ -35,8 +34,6 @@ class ShareManager:
     def remove(cls, id):
         cls.maxed_wnds.discard(id)
         cls.check_and_submit()
-
-# ------
 
 
 class PaneManager:
@@ -89,8 +86,6 @@ class PaneManager:
         wid = window.id()
         return wid in PaneManager.layouts
 
-# ------
-
 
 class MaxPaneCommand(sublime_plugin.WindowCommand):
     """Toggles pane maximization."""
@@ -102,8 +97,6 @@ class MaxPaneCommand(sublime_plugin.WindowCommand):
         elif w.num_groups() > 1:
             ShareManager.add(w.id())
             w.run_command("maximize_pane")
-
-# ------
 
 
 class MaximizePaneCommand(sublime_plugin.WindowCommand):
@@ -126,8 +119,6 @@ class MaximizePaneCommand(sublime_plugin.WindowCommand):
             view.set_status('0_maxpane', 'MAX')
         fixed_set_layout( w, l )
 
-# ------
-
 
 class UnmaximizePaneCommand(sublime_plugin.WindowCommand):
     def run(self):
@@ -147,8 +138,6 @@ class UnmaximizePaneCommand(sublime_plugin.WindowCommand):
         w = self.window
         w.run_command("distribute_layout")
 
-# ------
-
 
 class DistributeLayoutCommand(sublime_plugin.WindowCommand):
     def run(self):
@@ -162,8 +151,6 @@ class DistributeLayoutCommand(sublime_plugin.WindowCommand):
         l = len(values)
         r = range(0, l)
         return [n / float(l - 1) for n in r]
-
-# ------
 
 
 class ShiftPaneCommand(sublime_plugin.WindowCommand):
@@ -181,8 +168,6 @@ class ShiftPaneCommand(sublime_plugin.WindowCommand):
             m = g + 1
         return m
 
-# ------
-
 
 class UnshiftPaneCommand(ShiftPaneCommand):
     def groupToMoveTo(self):
@@ -195,17 +180,14 @@ class UnshiftPaneCommand(ShiftPaneCommand):
             m = g - 1
         return m
 
-# ------
-
 
 class MaxPaneEvents(sublime_plugin.EventListener):
 
     def on_activated(self, view):
         global g_is_running
-        # print('g_is_running', g_is_running)
 
+        # print('g_is_running', g_is_running)
         if g_is_running: return
-        if sublime.load_settings(SHARE_OBJECT).get('block_max_pane'): return None
 
         # Is the window currently maximized?
         g_is_running = True
