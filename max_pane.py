@@ -2,6 +2,7 @@ import sublime
 import sublime_plugin
 
 
+g_is_running = False
 SHARE_OBJECT = 'max_pane_share.sublime-settings'
 
 
@@ -10,30 +11,6 @@ def fixed_set_layout(window, layout):
     active_group = window.active_group()
     window.set_layout( layout )
     window.focus_group( active_group )
-
-
-class ShareManager:
-    """Exposes a list of window ids which currently contain maximized panes.
-       Shared via an in-memory .sublime-settings file."""
-    maxed_wnds = set([])
-    previous = set([])
-
-    @classmethod
-    def check_and_submit(cls):
-        if cls.maxed_wnds != cls.previous:
-            cls.previous = cls.maxed_wnds
-            s = sublime.load_settings(SHARE_OBJECT)
-            s.set("maxed_wnds", list(cls.maxed_wnds))
-
-    @classmethod
-    def add(cls, id):
-        cls.maxed_wnds.add(id)
-        cls.check_and_submit()
-
-    @classmethod
-    def remove(cls, id):
-        cls.maxed_wnds.discard(id)
-        cls.check_and_submit()
 
 
 class PaneManager:
@@ -93,14 +70,16 @@ class MaxPaneCommand(sublime_plugin.WindowCommand):
         w = self.window
         if PaneManager.isWindowMaximized(w):
             w.run_command("unmaximize_pane")
-            ShareManager.remove(w.id())
+
         elif w.num_groups() > 1:
-            ShareManager.add(w.id())
             w.run_command("maximize_pane")
 
 
 class MaximizePaneCommand(sublime_plugin.WindowCommand):
     def run(self):
+        global g_is_running
+        g_is_running = True
+
         w = self.window
         g = w.active_group()
         l = w.get_layout()
@@ -117,12 +96,17 @@ class MaximizePaneCommand(sublime_plugin.WindowCommand):
         l["cols"] = new_cols
         for view in w.views():
             view.set_status('0_maxpane', 'MAX')
+
+        w.settings().set( "is_panel_maximized", True )
         fixed_set_layout( w, l )
+        g_is_running = False
 
 
 class UnmaximizePaneCommand(sublime_plugin.WindowCommand):
     def run(self):
         w = self.window
+        w.settings().set( "is_panel_maximized", False )
+
         if PaneManager.hasLayout(w):
             l = PaneManager.popLayout(w)
             fixed_set_layout( w, l )
