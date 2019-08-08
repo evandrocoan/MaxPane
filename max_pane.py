@@ -3,7 +3,6 @@ import sublime_plugin
 
 
 g_is_running = False
-SHARE_OBJECT = 'max_pane_share.sublime-settings'
 
 
 def fixed_set_layout(window, layout):
@@ -13,66 +12,38 @@ def fixed_set_layout(window, layout):
     window.focus_group( active_group )
 
 
-class PaneManager:
-    layouts = {}
-    maxgroup = {}
+def is_pane_maximized(window):
+    return window.settings().get( 'is_panel_maximized' )
 
-    @staticmethod
-    def isWindowMaximized(window):
-        w = window
-        if PaneManager.hasLayout(w):
+
+def looks_maximized(window):
+    layout = window.layout()
+    columns = layout['cols']
+    rows = layout['rows']
+
+    if window.num_groups() > 1:
+        if set(columns + rows) == set([0.0, 1.0]):
             return True
-        elif PaneManager.looksMaximized(w):
-            return True
-        return False
-
-    @staticmethod
-    def looksMaximized(window):
-        w = window
-        l = window.get_layout()
-        c = l["cols"]
-        r = l["rows"]
-        if w.num_groups() > 1:
-            if set(c + r) == set([0.0, 1.0]):
-                return True
-        return False
-
-    @staticmethod
-    def storeLayout(window):
-        w = window
-        wid = window.id()
-        PaneManager.layouts[wid] = w.get_layout()
-        PaneManager.maxgroup[wid] = w.active_group()
-
-    @staticmethod
-    def maxedGroup(window):
-        wid = window.id()
-        if wid in PaneManager.maxgroup:
-            return PaneManager.maxgroup[wid]
-
-    @staticmethod
-    def popLayout(window):
-        wid = window.id()
-        l = PaneManager.layouts[wid]
-        del PaneManager.layouts[wid]
-        del PaneManager.maxgroup[wid]
-        return l
-
-    @staticmethod
-    def hasLayout(window):
-        wid = window.id()
-        return wid in PaneManager.layouts
+    return False
 
 
 class MaxPaneCommand(sublime_plugin.WindowCommand):
     """Toggles pane maximization."""
-    def run(self):
-        w = self.window
-        if PaneManager.isWindowMaximized(w):
-            w.run_command("unmaximize_pane")
 
-        elif w.num_groups() > 1:
-            w.run_command("maximize_pane")
+    def run(self):
+        window = self.window
+
+        if is_pane_maximized(window):
+            window.run_command('unmaximize_pane')
+
+        else:
+            num_groups = window.num_groups()
+
+            if num_groups > 1:
+                window.run_command( 'maximize_pane' )
+
+            else:
+                print( "MaxPane Error: Cannot zoom a window only with '%s' panes!" % num_groups )
 
 
 class MaximizePaneCommand(sublime_plugin.WindowCommand):
@@ -80,88 +51,106 @@ class MaximizePaneCommand(sublime_plugin.WindowCommand):
         global g_is_running
         g_is_running = True
 
-        w = self.window
-        g = w.active_group()
-        l = w.get_layout()
-        PaneManager.storeLayout(w)
-        current_col = int(l["cells"][g][2])
-        current_row = int(l["cells"][g][3])
+        window = self.window
+        settings = window.settings()
+
+        origami_fraction = settings.get( 'origami_fraction' )
+        original_panes_layout = settings.get( 'original_panes_layout' )
+
+        if origami_fraction or original_panes_layout:
+            print("MaxPane Error: Trying to maximize a maximized pane!")
+            window.run_command('unmaximize_pane')
+            return
+
+        layout = window.layout()
+        active_group = window.active_group()
+
+        settings.set( 'original_panes_layout', layout )
+        settings.set( 'maximized_pane_group', active_group )
+
         new_rows = []
         new_cols = []
-        for index, row in enumerate(l["rows"]):
-            new_rows.append(0.0 if index < current_row else 1.0)
-        for index, col in enumerate(l["cols"]):
-            new_cols.append(0.0 if index < current_col else 1.0)
-        l["rows"] = new_rows
-        l["cols"] = new_cols
-        for view in w.views():
-            view.set_status('0_maxpane', 'MAX')
+        current_col = int(layout['cells'][active_group][2])
+        current_row = int(layout['cells'][active_group][3])
 
-        w.settings().set( "is_panel_maximized", True )
-        fixed_set_layout( w, l )
+        for index, row in enumerate(layout['rows']):
+            new_rows.append(0.0 if index < current_row else 1.0)
+
+        for index, col in enumerate(layout['cols']):
+            new_cols.append(0.0 if index < current_col else 1.0)
+
+        layout['rows'] = new_rows
+        layout['cols'] = new_cols
+
+        settings.set( 'is_panel_maximized', True )
+        fixed_set_layout( window, layout )
         g_is_running = False
 
 
 class UnmaximizePaneCommand(sublime_plugin.WindowCommand):
     def run(self):
-        w = self.window
-        w.settings().set( "is_panel_maximized", False )
+        window = self.window
+        settings = window.settings()
 
-        if PaneManager.hasLayout(w):
-            l = PaneManager.popLayout(w)
-            fixed_set_layout( w, l )
-        elif PaneManager.looksMaximized(w):
+        settings.set( 'origami_fraction', None )
+        settings.set( 'is_panel_maximized', False )
+        settings.set( 'maximized_pane_group', None )
+
+        if settings.get( 'original_panes_layout') :
+            layout = settings.get( 'original_panes_layout' )
+            settings.set( 'original_panes_layout', None )
+            fixed_set_layout( window, layout )
+
+        elif looks_maximized( window ):
             # We don't have a previous layout for this window
             # but it looks like it was maximized, so lets
             # just evenly distribute the layout.
-            self.evenOutLayout()
-        for view in w.views():
-            view.erase_status('0_maxpane')
-
-    def evenOutLayout(self):
-        w = self.window
-        w.run_command("distribute_layout")
+            window.run_command( 'distribute_layout' )
 
 
 class DistributeLayoutCommand(sublime_plugin.WindowCommand):
     def run(self):
-        w = self.window
-        l = w.get_layout()
-        l["rows"] = self.distribute(l["rows"])
-        l["cols"] = self.distribute(l["cols"])
-        fixed_set_layout( w, l )
+        window = self.window
+        layout = window.layout()
+
+        layout['rows'] = self.distribute(layout['rows'])
+        layout['cols'] = self.distribute(layout['cols'])
+        fixed_set_layout( window, layout )
 
     def distribute(self, values):
-        l = len(values)
-        r = range(0, l)
-        return [n / float(l - 1) for n in r]
+        layout = len(values)
+        return [n / float(layout - 1) for n in range(0, layout)]
 
 
 class ShiftPaneCommand(sublime_plugin.WindowCommand):
     def run(self):
-        w = self.window
-        w.focus_group(self.groupToMoveTo())
+        window = self.window
+        window.focus_group( self.groupToMoveTo() )
 
     def groupToMoveTo(self):
-        w = self.window
-        g = w.active_group()
-        n = w.num_groups() - 1
-        if g == n:
+        window = self.window
+        active_group = window.active_group()
+        n = window.num_groups() - 1
+
+        if active_group == n:
             m = 0
         else:
-            m = g + 1
+            m = active_group + 1
+
         return m
 
 
 class UnshiftPaneCommand(ShiftPaneCommand):
     def groupToMoveTo(self):
-        w = self.window
-        g = w.active_group()
-        n = w.num_groups() - 1
-        if g == 0:
+        window = self.window
+        active_group = window.active_group()
+        n = window.num_groups() - 1
+
+        if active_group == 0:
             m = n
         else:
-            m = g - 1
+            m = active_group - 1
+
         return m
 
 
@@ -170,36 +159,59 @@ class MaxPaneEvents(sublime_plugin.EventListener):
     def on_activated(self, view):
         global g_is_running
 
-        # print('g_is_running', g_is_running)
+        # print( 'Entering g_is_running', g_is_running )
         if g_is_running: return
 
         # Is the window currently maximized?
         g_is_running = True
-        w = view.window() or sublime.active_window()
+        window = view.window() or sublime.active_window()
 
-        if w and PaneManager.isWindowMaximized(w):
-            active_group = w.active_group()
+        # print()
+        def disable():
+            global g_is_running
+            g_is_running = False
+
+        if window and is_pane_maximized(window):
+            settings = window.settings()
+            active_group = window.active_group()
 
             # Is the active group the group that is maximized?
-            if active_group != PaneManager.maxedGroup(w):
+            maximized_pane_group = settings.get( 'maximized_pane_group' )
+
+            # print( 'maximized_pane_group', maximized_pane_group, 'active_group', active_group )
+            if maximized_pane_group is not None and maximized_pane_group != active_group:
+                origami_fraction = settings.get('origami_fraction')
 
                 def unmaximize():
-                    w.run_command("unmaximize_pane")
+
+                    if origami_fraction:
+                        window.run_command('unzoom_pane')
+
+                    else:
+                        window.run_command('unmaximize_pane')
+
+                    # print( 'unmaximize_pane', 'origami_fraction', origami_fraction )
                     sublime.set_timeout( maximize, 100 )
 
                 def maximize():
-                    w.run_command("maximize_pane")
+
+                    if origami_fraction:
+                        window.run_command('zoom_pane', { 'fraction': origami_fraction })
+
+                    else:
+                        window.run_command('maximize_pane')
+
+                    # print( 'maximize_pane', 'origami_fraction', origami_fraction )
                     sublime.set_timeout( disable, 100 )
 
-                def disable():
-                    global g_is_running
-                    g_is_running = False
-
-                # print('active_group', active_group)
+                # print( 'begin', 'origami_fraction', origami_fraction )
                 sublime.set_timeout( unmaximize, 100 )
 
             else:
-                g_is_running = False
+                # print( 'end' )
+                disable()
 
         else:
-            g_is_running = False
+            # print( 'maximized False' )
+            disable()
+
