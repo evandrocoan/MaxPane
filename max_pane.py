@@ -13,7 +13,7 @@ def fixed_set_layout(window, layout):
 
 
 def is_pane_maximized(window):
-    return window.settings().get( 'is_panel_maximized' )
+    return window.settings().get( 'original_panes_layout' )
 
 
 def looks_maximized(window):
@@ -32,9 +32,25 @@ class MaxPaneCommand(sublime_plugin.WindowCommand):
 
     def run(self):
         window = self.window
+        settings = window.settings()
+        max_pane_maximized = settings.get( 'max_pane_maximized' )
+        origami_fraction = settings.get( 'origami_fraction' )
+        original_panes_layout = settings.get( 'original_panes_layout' )
 
-        if is_pane_maximized(window):
-            window.run_command('unmaximize_pane')
+        # print( 'max_pane max_pane_maximized %-5s, origami_fraction: %-5s, original_panes_layout, %-5s' % ( max_pane_maximized, origami_fraction, original_panes_layout is not None ) )
+        if is_pane_maximized( window ):
+
+            if max_pane_maximized:
+                    window.run_command( 'unmaximize_pane' )
+
+            else:
+
+                if origami_fraction:
+                    window.run_command( 'maximize_pane', { 'skip_saving': True } )
+
+                else:
+                    print( "MaxPane Error: Invalid maximizing state!" )
+                    window.run_command( 'unmaximize_pane' )
 
         else:
             num_groups = window.num_groups()
@@ -47,7 +63,7 @@ class MaxPaneCommand(sublime_plugin.WindowCommand):
 
 
 class MaximizePaneCommand(sublime_plugin.WindowCommand):
-    def run(self):
+    def run(self, skip_saving=False):
         global g_is_running
         g_is_running = True
 
@@ -57,7 +73,7 @@ class MaximizePaneCommand(sublime_plugin.WindowCommand):
         origami_fraction = settings.get( 'origami_fraction' )
         original_panes_layout = settings.get( 'original_panes_layout' )
 
-        if origami_fraction or original_panes_layout:
+        if not skip_saving and ( origami_fraction or original_panes_layout ):
             print("MaxPane Error: Trying to maximize a maximized pane!")
             window.run_command('unmaximize_pane')
             return
@@ -65,8 +81,8 @@ class MaximizePaneCommand(sublime_plugin.WindowCommand):
         layout = window.layout()
         active_group = window.active_group()
 
-        settings.set( 'original_panes_layout', layout )
-        settings.set( 'maximized_pane_group', active_group )
+        if not skip_saving:
+            settings.set( 'original_panes_layout', layout )
 
         new_rows = []
         new_cols = []
@@ -82,7 +98,10 @@ class MaximizePaneCommand(sublime_plugin.WindowCommand):
         layout['rows'] = new_rows
         layout['cols'] = new_cols
 
-        settings.set( 'is_panel_maximized', True )
+        settings.set( 'origami_fraction', None )
+        settings.set( 'max_pane_maximized', True )
+        settings.set( 'maximized_pane_group', active_group )
+
         fixed_set_layout( window, layout )
         g_is_running = False
 
@@ -93,7 +112,7 @@ class UnmaximizePaneCommand(sublime_plugin.WindowCommand):
         settings = window.settings()
 
         settings.set( 'origami_fraction', None )
-        settings.set( 'is_panel_maximized', False )
+        settings.set( 'max_pane_maximized', False )
         settings.set( 'maximized_pane_group', None )
 
         if settings.get( 'original_panes_layout') :
@@ -171,7 +190,7 @@ class MaxPaneEvents(sublime_plugin.EventListener):
             global g_is_running
             g_is_running = False
 
-        if window and is_pane_maximized(window):
+        if window and is_pane_maximized( window ):
             settings = window.settings()
             active_group = window.active_group()
 
