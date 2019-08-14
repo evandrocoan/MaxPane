@@ -3,6 +3,43 @@ import sublime_plugin
 
 
 g_is_running = False
+g_allowed_command_to_change_focus = {
+    "travel_to_pane",
+    "carry_file_to_pane",
+    "clone_file_to_pane",
+    "create_pane",
+    "destroy_pane",
+    "create_pane_with_file",
+    "set_layout",
+    "project_manager",
+    "new_pane",
+    "focus_group",
+    "move_to_group",
+    "origami_move_to_group",
+}
+
+
+# https://stackoverflow.com/questions/128573/using-property-on-classmethods
+class StateMeta(type):
+
+    def __init__(cls, *args, **kwargs):
+        cls._can_switch_pane = False
+
+    @property
+    def can_switch_pane(cls):
+        return cls._can_switch_pane
+
+    @can_switch_pane.setter
+    def can_switch_pane(cls, timeout):
+        cls._can_switch_pane = True
+        sublime.set_timeout( cls.can_switch_pane_restart, timeout )
+
+
+class State(metaclass=StateMeta):
+
+    @classmethod
+    def can_switch_pane_restart(cls):
+        cls._can_switch_pane = False
 
 
 def fixed_set_layout(window, layout):
@@ -175,6 +212,18 @@ class UnshiftPaneCommand(ShiftPaneCommand):
 
 class MaxPaneEvents(sublime_plugin.EventListener):
 
+    def on_text_command(self, view, command_name, args):
+        self.on_window_command( view.window(), command_name, args )
+
+    def on_window_command(self, window, command_name, args):
+
+        # https://github.com/SublimeTextIssues/Core/issues/2932
+        if command_name == 'force_restoring_views_scrolling':
+            State.can_switch_pane = 20000
+
+        elif command_name in g_allowed_command_to_change_focus:
+            State.can_switch_pane = 2000
+
     def on_activated(self, view):
         global g_is_running
 
@@ -199,32 +248,59 @@ class MaxPaneEvents(sublime_plugin.EventListener):
 
             # print( 'maximized_pane_group', maximized_pane_group, 'active_group', active_group )
             if maximized_pane_group is not None and maximized_pane_group != active_group:
-                origami_fraction = settings.get('origami_fraction')
 
-                def unmaximize():
+                # https://github.com/SublimeTextIssues/Core/issues/2932
+                if State.can_switch_pane:
+                    origami_fraction = settings.get('origami_fraction')
 
-                    if origami_fraction:
-                        window.run_command('unzoom_pane')
+                    def unmaximize():
 
-                    else:
-                        window.run_command('unmaximize_pane')
+                        if origami_fraction:
+                            window.run_command('unzoom_pane')
 
-                    # print( 'unmaximize_pane', 'origami_fraction', origami_fraction )
-                    sublime.set_timeout( maximize, 100 )
+                        else:
+                            window.run_command('unmaximize_pane')
 
-                def maximize():
+                        # print( 'unmaximize_pane', 'origami_fraction', origami_fraction )
+                        sublime.set_timeout( maximize, 100 )
 
-                    if origami_fraction:
-                        window.run_command('zoom_pane', { 'fraction': origami_fraction })
+                    def maximize():
 
-                    else:
-                        window.run_command('maximize_pane')
+                        if origami_fraction:
+                            window.run_command('zoom_pane', { 'fraction': origami_fraction })
 
-                    # print( 'maximize_pane', 'origami_fraction', origami_fraction )
+                        else:
+                            window.run_command('maximize_pane')
+
+                        # print( 'maximize_pane', 'origami_fraction', origami_fraction )
+                        sublime.set_timeout( disable, 100 )
+
+                    # print( 'begin', 'origami_fraction', origami_fraction )
+                    sublime.set_timeout( unmaximize, 100 )
+
+                else:
+                    original_view = window.active_view_in_group( maximized_pane_group )
+                    _, original_view_index = window.get_view_index( original_view )
+                    source_view_group, source_view_index = window.get_view_index( view )
+
+                    print( "[MaxPane] Cloning opened view from group %s to %s... %s" % (
+                            source_view_group + 1, maximized_pane_group + 1, view.file_name() ) )
+
+                    # If we move the cloned file's tab to the left of the original's,
+                    # then when we remove it from the group, focus will fall to the
+                    # original view.
+                    window.run_command( 'clone_file' )
+                    cloned_view = window.active_view()
+                    window.set_view_index( cloned_view, maximized_pane_group, original_view_index + 1 )
+
+                    def fix_view_focus():
+                        selections = cloned_view.sel()
+                        if selections:
+                            cloned_view.show_at_center( selections[0].begin() )
+
+                    sublime.set_timeout( lambda: window.focus_view( cloned_view ) )
+                    sublime.set_timeout( fix_view_focus, 500 )
                     sublime.set_timeout( disable, 100 )
-
-                # print( 'begin', 'origami_fraction', origami_fraction )
-                sublime.set_timeout( unmaximize, 100 )
 
             else:
                 # print( 'end' )
