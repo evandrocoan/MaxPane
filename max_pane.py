@@ -300,7 +300,7 @@ class MaxPaneEvents(sublime_plugin.EventListener):
 
                     sublime.set_timeout( lambda: window.focus_view( cloned_view ) )
                     sublime.set_timeout( fix_view_focus, 500 )
-                    sublime.set_timeout( disable, 100 )
+                    sublime.set_timeout( disable, 1000 )
 
             else:
                 # print( 'end' )
