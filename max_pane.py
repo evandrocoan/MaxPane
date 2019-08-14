@@ -16,6 +16,8 @@ g_allowed_command_to_change_focus = {
     "focus_group",
     "move_to_group",
     "origami_move_to_group",
+    "drag_select",
+    "context_menu",
 }
 
 
