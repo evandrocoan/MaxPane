@@ -221,7 +221,7 @@ class MaxPaneEvents(sublime_plugin.EventListener):
 
         # https://github.com/SublimeTextIssues/Core/issues/2932
         if command_name == 'force_restoring_views_scrolling':
-            State.can_switch_pane = 20000
+            State.can_switch_pane = 10000
 
         elif command_name in g_allowed_command_to_change_focus:
             State.can_switch_pane = 2000
@@ -282,25 +282,39 @@ class MaxPaneEvents(sublime_plugin.EventListener):
 
                 else:
                     original_view = window.active_view_in_group( maximized_pane_group )
-                    _, original_view_index = window.get_view_index( original_view )
-                    source_view_group, source_view_index = window.get_view_index( view )
+                    original_pane_group, original_view_index = window.get_view_index( original_view )
 
-                    print( "[MaxPane] Cloning opened view from group %s to %s... %s" % (
-                            source_view_group + 1, maximized_pane_group + 1, view.file_name() ) )
+                    view = window.active_view()
+                    viewport_position = view.viewport_position()
+                    view_group, view_index = window.get_view_index( view )
+
+                    print( "[MaxPane] Cloning opened view %s from group %s[%s] to %s[%s]... %s" % (
+                            viewport_position,
+                            view_group + 1,
+                            view_index,
+                            original_pane_group + 1,
+                            original_view_index + 1,
+                            view.file_name() ) )
 
                     # If we move the cloned file's tab to the left of the original's,
                     # then when we remove it from the group, focus will fall to the
                     # original view.
                     window.run_command( 'clone_file' )
                     cloned_view = window.active_view()
-                    window.set_view_index( cloned_view, maximized_pane_group, original_view_index + 1 )
 
                     def fix_view_focus():
-                        selections = cloned_view.sel()
-                        if selections:
-                            cloned_view.show_at_center( selections[0].begin() )
+                        cloned_view_selections = cloned_view.sel()
+                        cloned_view_selections.clear()
 
-                    sublime.set_timeout( lambda: window.focus_view( cloned_view ) )
+                        for selection in view.sel():
+                            cloned_view_selections.add( selection )
+
+                        # if cloned_view_selections: cloned_view.show_at_center( cloned_view_selections[0].begin() )
+                        cloned_view.set_viewport_position( viewport_position )
+
+                    # sublime.set_timeout( lambda: window.set_view_index( view, view_group, view_index ), 0 )
+                    sublime.set_timeout( lambda: window.set_view_index( cloned_view, original_pane_group, original_view_index + 1 ), 100 )
+                    sublime.set_timeout( lambda: window.focus_view( cloned_view ), 250 )
                     sublime.set_timeout( fix_view_focus, 500 )
                     sublime.set_timeout( disable, 1000 )
 
