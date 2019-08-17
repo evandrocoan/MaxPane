@@ -28,7 +28,17 @@ g_allowed_command_to_change_focus = {
 class StateMeta(type):
 
     def __init__(cls, *args, **kwargs):
+        cls._disable_timeout = False
         cls._can_switch_pane = False
+
+    @property
+    def disable_timeout(cls):
+        return cls._disable_timeout
+
+    @disable_timeout.setter
+    def disable_timeout(cls, value):
+        cls._disable_timeout = value
+        cls._can_switch_pane = value
 
     @property
     def can_switch_pane(cls):
@@ -37,7 +47,9 @@ class StateMeta(type):
     @can_switch_pane.setter
     def can_switch_pane(cls, timeout):
         cls._can_switch_pane = True
-        sublime.set_timeout( cls.can_switch_pane_restart, timeout )
+
+        if not cls.disable_timeout:
+            sublime.set_timeout( cls.can_switch_pane_restart, timeout )
 
 
 class State(metaclass=StateMeta):
@@ -223,10 +235,7 @@ class MaxPaneEvents(sublime_plugin.EventListener):
     def on_window_command(self, window, command_name, args):
 
         # https://github.com/SublimeTextIssues/Core/issues/2932
-        if command_name == 'force_restoring_views_scrolling':
-            State.can_switch_pane = 10000
-
-        elif command_name in g_allowed_command_to_change_focus:
+        if command_name in g_allowed_command_to_change_focus:
             State.can_switch_pane = 2000
 
     def on_activated(self, view):
