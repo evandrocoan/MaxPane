@@ -2,7 +2,6 @@ import sublime
 import sublime_plugin
 
 
-g_is_running = False
 g_allowed_command_to_change_focus = {
     "travel_to_pane",
     "carry_file_to_pane",
@@ -42,6 +41,7 @@ class StateMeta(type):
 
 
 class State(metaclass=StateMeta):
+    is_fixing_layout = False
 
     @classmethod
     def can_switch_pane_restart(cls):
@@ -107,8 +107,7 @@ class MaxPaneCommand(sublime_plugin.WindowCommand):
 
 class MaximizePaneCommand(sublime_plugin.WindowCommand):
     def run(self, skip_saving=False):
-        global g_is_running
-        g_is_running = True
+        State.is_fixing_layout = True
 
         window = self.window
         settings = window.settings()
@@ -146,7 +145,7 @@ class MaximizePaneCommand(sublime_plugin.WindowCommand):
         settings.set( 'maximized_pane_group', active_group )
 
         fixed_set_layout( window, layout )
-        g_is_running = False
+        State.is_fixing_layout = False
 
 
 class UnmaximizePaneCommand(sublime_plugin.WindowCommand):
@@ -231,19 +230,16 @@ class MaxPaneEvents(sublime_plugin.EventListener):
             State.can_switch_pane = 2000
 
     def on_activated(self, view):
-        global g_is_running
-
-        # print( 'Entering g_is_running', g_is_running )
-        if g_is_running: return
+        # print( 'Entering State.is_fixing_layout', State.is_fixing_layout )
+        if State.is_fixing_layout: return
 
         # Is the window currently maximized?
-        g_is_running = True
+        State.is_fixing_layout = True
         window = view.window() or sublime.active_window()
 
         # print()
         def disable():
-            global g_is_running
-            g_is_running = False
+            State.is_fixing_layout = False
 
         if window and is_pane_maximized( window ):
             settings = window.settings()
