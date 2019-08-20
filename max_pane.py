@@ -1,6 +1,8 @@
 import sublime
 import sublime_plugin
 
+TIME_AFTER_FOCUS_VIEW = 30
+TIME_AFTER_RESTORE_VIEW = 15
 
 g_allowed_command_to_change_focus = {
     "travel_to_pane",
@@ -321,6 +323,7 @@ class MaxPaneEvents(sublime_plugin.EventListener):
 
                         # if cloned_view_selections: cloned_view.show_at_center( cloned_view_selections[0].begin() )
                         cloned_view.set_viewport_position( viewport_position )
+                        restore_view( view, window, lambda: None )
 
                     # sublime.set_timeout( lambda: window.set_view_index( view, view_group, view_index ), 0 )
                     sublime.set_timeout( lambda: window.set_view_index( cloned_view, original_pane_group, original_view_index + 1 ), 100 )
@@ -336,3 +339,50 @@ class MaxPaneEvents(sublime_plugin.EventListener):
             # print( 'maximized False' )
             disable()
 
+
+def restore_view(view, window, next_target, withfocus=True):
+
+    if view.is_loading():
+        sublime.set_timeout( lambda: restore_view( view, window, next_target, withfocus=withfocus ), 200 )
+
+    else:
+        selections = view.sel()
+        file_name = view.file_name()
+
+        if selections:
+            first_selection = selections[0].begin()
+            original_selections = list( selections )
+
+            if file_name and withfocus:
+                def reforce_focus():
+                    # https://github.com/SublimeTextIssues/Core/issues/1482
+                    group, view_index = window.get_view_index( view )
+                    window.set_view_index( view, group, 0 )
+
+                    # https://github.com/SublimeTextIssues/Core/issues/538
+                    row, column = view.rowcol( first_selection )
+                    window.open_file( "%s:%d:%d" % ( file_name, row + 1, column + 1 ), sublime.ENCODED_POSITION )
+                    window.set_view_index( view, group, view_index )
+
+                    def super_refocus():
+                        view.run_command( "move", {"by": "lines", "forward": False} )
+                        view.run_command( "move", {"by": "lines", "forward": True} )
+
+                        def fix_selections():
+                            selections.clear()
+
+                            for selection in original_selections:
+                                selections.add( selection )
+
+                            sublime.set_timeout( next_target, TIME_AFTER_RESTORE_VIEW )
+
+                        sublime.set_timeout( fix_selections, TIME_AFTER_RESTORE_VIEW )
+
+                    sublime.set_timeout( super_refocus, TIME_AFTER_RESTORE_VIEW )
+
+                view.show_at_center( first_selection )
+                sublime.set_timeout( reforce_focus, TIME_AFTER_FOCUS_VIEW )
+
+            else:
+                view.show_at_center( first_selection )
+                sublime.set_timeout( next_target, TIME_AFTER_RESTORE_VIEW )
