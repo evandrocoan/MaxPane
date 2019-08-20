@@ -21,6 +21,7 @@ g_allowed_command_to_change_focus = {
     "my_jump_back",
     "my_jump_forward",
     "context_menu",
+    "open_recently_closed_file",
 }
 
 
