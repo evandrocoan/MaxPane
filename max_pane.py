@@ -1,8 +1,13 @@
 import sublime
 import sublime_plugin
 
+import datetime
+
 TIME_AFTER_FOCUS_VIEW = 30
 TIME_AFTER_RESTORE_VIEW = 15
+
+debug_events = print
+# debug_events = lambda: None
 
 g_allowed_command_to_change_focus = {
     "travel_to_pane",
@@ -25,6 +30,16 @@ g_allowed_command_to_change_focus = {
     "context_menu",
     "open_recently_closed_file",
 }
+
+
+class timestamp(object):
+    def __repr__(self):
+        return "%s" % (
+                datetime.datetime.now(),
+            )
+
+# Allows to pass get_selections_stack as a function parameter without evaluating/creating its string!
+timestamp = timestamp()
 
 
 # https://stackoverflow.com/questions/128573/using-property-on-classmethods
@@ -95,7 +110,7 @@ class MaxPaneCommand(sublime_plugin.WindowCommand):
         origami_fraction = settings.get( 'origami_fraction' )
         original_panes_layout = settings.get( 'original_panes_layout' )
 
-        # print( 'max_pane max_pane_maximized %-5s, origami_fraction: %-5s, original_panes_layout, %-5s' % ( max_pane_maximized, origami_fraction, original_panes_layout is not None ) )
+        debug_events( timestamp, 'max_pane max_pane_maximized %-5s, origami_fraction: %-5s, original_panes_layout, %-5s' % ( max_pane_maximized, origami_fraction, original_panes_layout is not None ) )
         if is_pane_maximized( window ):
 
             if max_pane_maximized:
@@ -242,14 +257,13 @@ class MaxPaneEvents(sublime_plugin.EventListener):
             State.can_switch_pane = 2000
 
     def on_activated(self, view):
-        # print( 'Entering State.is_fixing_layout', State.is_fixing_layout )
+        debug_events( timestamp, 'Entering State.is_fixing_layout', State.is_fixing_layout )
         if State.is_fixing_layout: return
 
         # Is the window currently maximized?
         State.is_fixing_layout = True
         window = view.window() or sublime.active_window()
 
-        # print()
         def disable():
             State.is_fixing_layout = False
 
@@ -260,7 +274,7 @@ class MaxPaneEvents(sublime_plugin.EventListener):
             # Is the active group the group that is maximized?
             maximized_pane_group = settings.get( 'maximized_pane_group' )
 
-            # print( 'maximized_pane_group', maximized_pane_group, 'active_group', active_group )
+            debug_events( timestamp, 'maximized_pane_group', maximized_pane_group, 'active_group', active_group )
             if maximized_pane_group is not None and maximized_pane_group != active_group:
 
                 # https://github.com/SublimeTextIssues/Core/issues/2932
@@ -275,7 +289,7 @@ class MaxPaneEvents(sublime_plugin.EventListener):
                         else:
                             window.run_command('unmaximize_pane')
 
-                        # print( 'unmaximize_pane', 'origami_fraction', origami_fraction )
+                        debug_events( timestamp, 'unmaximize_pane', 'origami_fraction', origami_fraction )
                         sublime.set_timeout( maximize, 100 )
 
                     def maximize():
@@ -286,10 +300,10 @@ class MaxPaneEvents(sublime_plugin.EventListener):
                         else:
                             window.run_command('maximize_pane')
 
-                        # print( 'maximize_pane', 'origami_fraction', origami_fraction )
+                        debug_events( timestamp, 'maximize_pane', 'origami_fraction', origami_fraction )
                         sublime.set_timeout( disable, 100 )
 
-                    # print( 'begin', 'origami_fraction', origami_fraction )
+                    debug_events( timestamp, 'begin', 'origami_fraction', origami_fraction )
                     sublime.set_timeout( unmaximize, 100 )
 
                 else:
@@ -332,11 +346,11 @@ class MaxPaneEvents(sublime_plugin.EventListener):
                     sublime.set_timeout( disable, 1000 )
 
             else:
-                # print( 'end' )
+                debug_events( timestamp, 'end' )
                 disable()
 
         else:
-            # print( 'maximized False' )
+            debug_events( timestamp, 'maximized False' )
             disable()
 
 
