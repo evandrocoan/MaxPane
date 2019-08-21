@@ -7,7 +7,7 @@ TIME_AFTER_FOCUS_VIEW = 30
 TIME_AFTER_RESTORE_VIEW = 15
 
 debug_events = print
-# debug_events = lambda: None
+debug_events = lambda *args: None
 
 g_allowed_command_to_change_focus = {
     "travel_to_pane",
@@ -255,6 +255,10 @@ class MaxPaneEvents(sublime_plugin.EventListener):
         # https://github.com/SublimeTextIssues/Core/issues/2932
         if command_name in g_allowed_command_to_change_focus:
             State.can_switch_pane = 2000
+
+            # Fix Sublime Text not focusing the active group when using result_file_regex double click
+            active_group = window.active_group()
+            window.focus_group( active_group )
 
     def on_activated(self, view):
         debug_events( timestamp, 'Entering State.is_fixing_layout', State.is_fixing_layout )
