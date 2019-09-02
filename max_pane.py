@@ -315,8 +315,21 @@ class MaxPaneEvents(sublime_plugin.EventListener):
                     viewport_position = view.viewport_position()
                     view_group, view_index = window.get_view_index( view )
 
-                    print( "[MaxPane] Cloning opened view %s from group %s[%s] to %s[%s]... %s" % (
+                    if not original_view:
+                        sublime.set_timeout( disable, 1000 )
+                        return
+
+                    actual_window = view.window()
+                    original_window = original_view.window()
+
+                    if not actual_window or not original_window or actual_window.id() != original_window.id():
+                        sublime.set_timeout( disable, 1000 )
+                        return
+
+                    print( "[MaxPane] Cloning opened view %s/%s/%s from group %s[%s] to %s[%s]... %s" % (
                             viewport_position,
+                            actual_window.id(),
+                            original_window.id(),
                             view_group + 1,
                             view_index,
                             original_pane_group + 1,
