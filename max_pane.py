@@ -67,6 +67,8 @@ class StateMeta(type):
             sublime.set_timeout( cls.can_switch_pane_restart, timeout )
 
 
+# I am saving the state in this class because it is a royal pain in the ass to keep typing `global`
+# every time/everywhere I would like to use a global!
 class State(metaclass=StateMeta):
     is_fixing_layout = False
 
