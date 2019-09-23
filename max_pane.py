@@ -328,14 +328,14 @@ class MaxPaneEvents(sublime_plugin.EventListener):
                         sublime.set_timeout( disable, 1000 )
                         return
 
-                    print( "[MaxPane] Cloning opened view %s/%s/%s from group %s[%s] to %s[%s]... %s" % (
-                            viewport_position,
-                            actual_window.id(),
-                            original_window.id(),
+                    print( "[MaxPane] Cloning from group %s[%s] to %s[%s] opened view %s/%s/%s ... %s" % (
                             view_group + 1,
                             view_index,
                             original_pane_group + 1,
                             original_view_index + 1,
+                            actual_window.id(),
+                            original_window.id(),
+                            viewport_position,
                             view.file_name() ) )
 
                     # If we move the cloned file's tab to the left of the original's,
