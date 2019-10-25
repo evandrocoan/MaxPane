@@ -1,7 +1,11 @@
 import sublime
 import sublime_plugin
 
+import time
 import datetime
+
+g_last_click_time = time.time()
+g_last_click_buttons = None
 
 debug_events = print
 debug_events = lambda *args: None
@@ -19,7 +23,6 @@ g_allowed_command_to_change_focus = {
     "focus_group",
     "move_to_group",
     "origami_move_to_group",
-    "drag_select",
     "jump_back",
     "jump_forward",
     "my_jump_back",
@@ -244,6 +247,22 @@ class UnshiftPaneCommand(ShiftPaneCommand):
         return m
 
 
+def is_double_click(args):
+    global g_last_click_time
+    global g_last_click_buttons
+
+    clicks_buttons = args['event']
+    new_click = time.time()
+
+    if clicks_buttons == g_last_click_buttons:
+        click_time = new_click - g_last_click_time
+
+        if click_time < 0.6:
+            return True
+
+    return False
+
+
 class MaxPaneEvents(sublime_plugin.EventListener):
 
     def on_text_command(self, view, command_name, args):
@@ -252,7 +271,8 @@ class MaxPaneEvents(sublime_plugin.EventListener):
     def on_window_command(self, window, command_name, args):
 
         # https://github.com/SublimeTextIssues/Core/issues/2932
-        if command_name in g_allowed_command_to_change_focus:
+        if( command_name in g_allowed_command_to_change_focus
+        or command_name == "drag_select" and is_double_click( args ) ):
             State.can_switch_pane = 2000
 
             # Fix Sublime Text not focusing the active group when using result_file_regex double click
