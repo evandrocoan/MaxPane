@@ -348,7 +348,8 @@ class MaxPaneEvents(sublime_plugin.EventListener):
                         sublime.set_timeout( disable, 1000 )
                         return
 
-                    print( "[MaxPane] Cloning from group %s[%s] to %s[%s] opened view %s/%s/%s ... %s" % (
+                    print( "[MaxPane] %s Cloning from group %s[%s] to %s[%s] opened view %s/%s/%s ... %s" % (
+                            str( datetime.datetime.now() )[:-4],
                             view_group + 1,
                             view_index,
                             original_pane_group + 1,
