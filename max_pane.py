@@ -359,27 +359,31 @@ class MaxPaneEvents(sublime_plugin.EventListener):
                             viewport_position,
                             view.file_name() ) )
 
-                    # If we move the cloned file's tab to the left of the original's,
-                    # then when we remove it from the group, focus will fall to the
-                    # original view.
-                    window.run_command( 'clone_file' )
-                    cloned_view = window.active_view()
+                    # disable it for now, it broke something in Sublime Text 4
+                    # (when pressing Alt+Tab after running Ctrl+Shift+F with
+                    # two panes open and triggering this code
 
-                    def fix_view_focus():
-                        cloned_view_selections = cloned_view.sel()
-                        cloned_view_selections.clear()
+                    # # If we move the cloned file's tab to the left of the original's,
+                    # # then when we remove it from the group, focus will fall to the
+                    # # original view.
+                    # window.run_command( 'clone_file' )
+                    # cloned_view = window.active_view()
 
-                        for selection in view.sel():
-                            cloned_view_selections.add( selection )
+                    # def fix_view_focus():
+                    #     cloned_view_selections = cloned_view.sel()
+                    #     cloned_view_selections.clear()
 
-                        # if cloned_view_selections: cloned_view.show_at_center( cloned_view_selections[0].begin() )
-                        cloned_view.set_viewport_position( viewport_position )
-                        restore_view( view, window, lambda: None )
+                    #     for selection in view.sel():
+                    #         cloned_view_selections.add( selection )
 
-                    # sublime.set_timeout( lambda: window.set_view_index( view, view_group, view_index ), 0 )
-                    sublime.set_timeout( lambda: window.set_view_index( cloned_view, original_pane_group, original_view_index + 1 ), 100 )
-                    sublime.set_timeout( lambda: window.focus_view( cloned_view ), 250 )
-                    sublime.set_timeout( fix_view_focus, 500 )
+                    #     # if cloned_view_selections: cloned_view.show_at_center( cloned_view_selections[0].begin() )
+                    #     cloned_view.set_viewport_position( viewport_position )
+                    #     restore_view( view, window, lambda: None )
+
+                    # # sublime.set_timeout( lambda: window.set_view_index( view, view_group, view_index ), 0 )
+                    # sublime.set_timeout( lambda: window.set_view_index( cloned_view, original_pane_group, original_view_index + 1 ), 100 )
+                    # sublime.set_timeout( lambda: window.focus_view( cloned_view ), 250 )
+                    # sublime.set_timeout( fix_view_focus, 500 )
                     sublime.set_timeout( disable, 1000 )
 
             else:
